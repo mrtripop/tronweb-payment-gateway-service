@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRON USDT Payment - Transaction History</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background-color: #FFF3CD;
+            color: #856404;
+        }
+        .status-completed {
+            background-color: #D4EDDA;
+            color: #155724;
+        }
+        .status-processing {
+            background-color: #CCE5FF;
+            color: #004085;
+        }
+        .status-failed {
+            background-color: #F8D7DA;
+            color: #721C24;
+        }
+        .status-transferred {
+            background-color: #D1E7DD;
+            color: #0F5132;
+        }
+        .status-pending-transfer {
+            background-color: #E2E3E5;
+            color: #41464B;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        .pagination button.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        .pagination button:hover:not(.active) {
+            background-color: #ddd;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .view-details {
+            color: #2196F3;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 70%;
+            max-width: 600px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .modal-body {
+            margin-top: 20px;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .detail-label {
+            width: 40%;
+            font-weight: bold;
+        }
+        .detail-value {
+            width: 60%;
+            word-break: break-all;
+        }
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.secondary {
+            background-color: #2196F3;
+        }
+        button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .payment-steps {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .step {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .step-status {
+            margin-left: 10px;
+            font-size: 20px;
+        }
+        .step-status.completed {
+            color: green;
+        }
+        .step-status.pending {
+            color: orange;
+        }
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .qr-code {
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+        .qr-code img {
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TRON USDT Payment - Transaction History</h1>
+    
+    <div class="container">
+        <div class="header">
+            <h2>Transaction History</h2>
+            <a href="payment-page.html"><button class="secondary">Create New Payment</button></a>
+        </div>
+        
+        <div class="filters">
+            <select id="status-filter">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="processing">Processing</option>
+                <option value="failed">Failed</option>
+            </select>
+            <button id="apply-filters">Apply Filters</button>
+        </div>
+        
+        <div id="transactions-table-container">
+            <table id="transactions-table">
+                <thead>
+                    <tr>
+                        <th>Payment ID</th>
+                        <th>Amount (USDT)</th>
+                        <th>Description</th>
+                        <th>Payment Status</th>
+                        <th>Transfer Status</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-body">
+                    <!-- Transactions will be displayed here -->
+                </tbody>
+            </table>
+            <div id="no-results" class="no-results" style="display: none;">
+                No transactions found matching your criteria.
+            </div>
+        </div>
+        
+        <div class="pagination" id="pagination">
+            <!-- Pagination buttons will be displayed here -->
+        </div>
+    </div>
+    
+    <!-- Transaction Details Modal -->
+    <div id="transaction-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Transaction Details</h2>
+            <div class="modal-body" id="transaction-details">
+                <!-- Transaction details will be displayed here -->
+            </div>
+            
+            <div class="qr-code" id="payment-qrcode" style="text-align: center; margin: 20px 0; display: none;">
+                <h3>Payment QR Code</h3>
+                <img id="qr-code-img" src="" alt="QR Code" style="max-width: 200px;">
+                <p>Scan this QR code with your TRON wallet app</p>
+                <div style="margin-top: 10px;">
+                    <input type="text" id="address-to-copy" readonly style="width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button id="copy-address-btn" class="secondary" style="margin-left: 5px;">Copy Address</button>
+                </div>
+                <p id="copy-success" style="color: green; display: none;">Address copied to clipboard!</p>
+            </div>
+            
+            <div class="payment-steps" id="payment-steps">
+                <h3>Payment Progress:</h3>
+                <div class="step">
+                    <span>1. Payment received</span>
+                    <span class="step-status pending" id="step1-status">⌛</span>
+                </div>
+                <div class="step">
+                    <span>2. Funds transferred to main wallet</span>
+                    <span class="step-status pending" id="step2-status">⌛</span>
+                </div>
+            </div>
+            <div class="actions">
+                <button id="check-status-btn">Check Status</button>
+                <button id="close-modal" class="secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API URL
+        const API_URL = 'http://localhost:3000/api';
+        
+        // Current page and payment ID
+        let currentPage = 1;
+        let currentPaymentId = null;
+        let totalPages = 1;
+        
+        // DOM elements
+        const transactionsBody = document.getElementById('transactions-body');
+        const paginationContainer = document.getElementById('pagination');
+        const statusFilter = document.getElementById('status-filter');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const modal = document.getElementById('transaction-modal');
+        const closeModalBtn = document.querySelector('.close');
+        const closeModalBtnBottom = document.getElementById('close-modal');
+        const transactionDetails = document.getElementById('transaction-details');
+        const checkStatusBtn = document.getElementById('check-status-btn');
+        const step1Status = document.getElementById('step1-status');
+        const step2Status = document.getElementById('step2-status');
+        const noResults = document.getElementById('no-results');
+        const addressInput = document.getElementById('address-to-copy');
+        const copyAddressBtn = document.getElementById('copy-address-btn');
+        const copySuccess = document.getElementById('copy-success');
+        
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Get status badge HTML
+        function getStatusBadge(status) {
+            return `<span class="status-badge status-${status.toLowerCase().replace('_', '-')}">${status}</span>`;
+        }
+        
+        // Load transactions
+        async function loadTransactions() {
+            try {
+                const status = statusFilter.value;
+                const response = await fetch(`${API_URL}/payment?page=${currentPage}&limit=10${status ? '&status=' + status : ''}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const { payments, pagination } = result.data;
+                    totalPages = pagination.pages;
+                    
+                    // Clear existing rows
+                    transactionsBody.innerHTML = '';
+                    
+                    if (payments.length === 0) {
+                        noResults.style.display = 'block';
+                        document.getElementById('transactions-table').style.display = 'none';
+                    } else {
+                        noResults.style.display = 'none';
+                        document.getElementById('transactions-table').style.display = 'table';
+                        
+                        // Add transaction rows
+                        payments.forEach(payment => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${payment.paymentId}</td>
+                                <td>${payment.amount}</td>
+                                <td>${payment.description || '-'}</td>
+                                <td>${getStatusBadge(payment.status)}</td>
+                                <td>${getStatusBadge(payment.transferStatus)}</td>
+                                <td>${formatDate(payment.createdAt)}</td>
+                                <td><span class="view-details" data-id="${payment.paymentId}">View Details</span></td>
+                            `;
+                            transactionsBody.appendChild(row);
+                        });
+                        
+                        // Add event listeners to view details buttons
+                        document.querySelectorAll('.view-details').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                const paymentId = btn.getAttribute('data-id');
+                                openTransactionDetails(paymentId);
+                            });
+                        });
+                    }
+                    
+                    // Update pagination
+                    updatePagination(pagination);
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                alert('Error loading transactions. Please try again.');
+            }
+        }
+        
+        // Update pagination controls
+        function updatePagination(pagination) {
+            paginationContainer.innerHTML = '';
+            
+            // Previous button
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '← Previous';
+            prevBtn.disabled = pagination.page <= 1;
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadTransactions();
+                }
+            });
+            paginationContainer.appendChild(prevBtn);
+            
+            // Page numbers
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.pages, pagination.page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.textContent = i;
+                pageBtn.classList.toggle('active', i === pagination.page);
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    loadTransactions();
+                });
+                paginationContainer.appendChild(pageBtn);
+            }
+            
+            // Next button
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = 'Next →';
+            nextBtn.disabled = pagination.page >= pagination.pages;
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadTransactions();
+                }
+            });
+            paginationContainer.appendChild(nextBtn);
+        }
+        
+        // Open transaction details modal
+        async function openTransactionDetails(paymentId) {
+            try {
+                const response = await fetch(`${API_URL}/payment/${paymentId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const payment = result.data;
+                    currentPaymentId = paymentId;
+                    
+                    // Update payment step indicators
+                    if (payment.status === 'completed' || payment.status === 'fully_completed') {
+                        step1Status.textContent = '✅';
+                        step1Status.className = 'step-status completed';
+                    } else {
+                        step1Status.textContent = '⌛';
+                        step1Status.className = 'step-status pending';
+                    }
+                    
+                    if (payment.transferStatus === 'transferred') {
+                        step2Status.textContent = '✅';
+                        step2Status.className = 'step-status completed';
+                    } else {
+                        step2Status.textContent = '⌛';
+                        step2Status.className = 'step-status pending';
+                    }
+                    
+                    // Populate transaction details
+                    transactionDetails.innerHTML = `
+                        <div class="detail-row">
+                            <div class="detail-label">Payment ID:</div>
+                            <div class="detail-value">${payment.paymentId}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Amount:</div>
+                            <div class="detail-value">${payment.amount} USDT</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Description:</div>
+                            <div class="detail-value">${payment.description || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Receiving Address:</div>
+                            <div class="detail-value">${payment.address}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Payment Status:</div>
+                            <div class="detail-value">${getStatusBadge(payment.status)}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Transfer Status:</div>
+                            <div class="detail-value">${getStatusBadge(payment.transferStatus)}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Payment Transaction ID:</div>
+                            <div class="detail-value">${payment.transactionId || 'Not available'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Transfer Transaction ID:</div>
+                            <div class="detail-value">${payment.transferTransactionId || 'Not available'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Created At:</div>
+                            <div class="detail-value">${formatDate(payment.createdAt)}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Last Updated:</div>
+                            <div class="detail-value">${formatDate(payment.updatedAt)}</div>
+                        </div>
+                    `;
+                    
+                    // Generate QR code for the address
+                    const qrCodeContainer = document.getElementById('payment-qrcode');
+                    const qrCodeImg = document.getElementById('qr-code-img');
+                    
+                    try {
+                        // Use QR Server API to generate QR code
+                        qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${payment.address}`;
+                        
+                        // Set address in input field for copying
+                        addressInput.value = payment.address;
+                        
+                        qrCodeContainer.style.display = 'block';
+                    } catch (qrError) {
+                        console.error('Error generating QR code:', qrError);
+                        qrCodeContainer.style.display = 'none';
+                    }
+                    
+                    // Show modal
+                    modal.style.display = 'block';
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error fetching transaction details:', error);
+                alert('Error fetching transaction details. Please try again.');
+            }
+        }
+        
+        // Check payment status
+        async function checkPaymentStatus() {
+            if (!currentPaymentId) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/payment/status/${currentPaymentId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Refresh the transaction details
+                    openTransactionDetails(currentPaymentId);
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error checking payment status:', error);
+                alert('Error checking payment status. Please try again.');
+            }
+        }
+        
+        // Close modal
+        function closeModal() {
+            modal.style.display = 'none';
+            currentPaymentId = null;
+        }
+        
+        // Event listeners
+        applyFiltersBtn.addEventListener('click', () => {
+            currentPage = 1;
+            loadTransactions();
+        });
+        
+        closeModalBtn.addEventListener('click', closeModal);
+        closeModalBtnBottom.addEventListener('click', closeModal);
+        
+        checkStatusBtn.addEventListener('click', checkPaymentStatus);
+        
+        copyAddressBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(addressInput.value);
+                copySuccess.style.display = 'block';
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    copySuccess.style.display = 'none';
+                }, 3000);
+            } catch (err) {
+                // Fallback for older browsers
+                addressInput.select();
+                document.execCommand('copy');
+                copySuccess.style.display = 'block';
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    copySuccess.style.display = 'none';
+                }, 3000);
+            }
+        });
+        
+        // When user clicks outside the modal
+        window.addEventListener('click', event => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTransactions();
+        });
+    </script>
+</body>
+</html> 

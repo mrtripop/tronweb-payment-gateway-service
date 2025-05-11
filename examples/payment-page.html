@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRON USDT Payment Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .payment-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .qr-code {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .qr-code img {
+            max-width: 200px;
+        }
+        .payment-details {
+            margin: 20px 0;
+            width: 100%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table td, table th {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .status.pending {
+            color: orange;
+        }
+        .status.completed {
+            color: green;
+        }
+        .status.processing {
+            color: blue;
+        }
+        .status.failed {
+            color: red;
+        }
+        .payment-steps {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .step {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .step-status {
+            margin-left: 10px;
+            font-size: 20px;
+        }
+        .step-status.completed {
+            color: green;
+        }
+        .step-status.pending {
+            color: orange;
+        }
+        .details-label {
+            font-weight: bold;
+            color: #555;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TRON USDT Payment Example</h1>
+    
+    <div class="container">
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>Create a new payment or view existing payments</div>
+            <a href="transaction-history.html"><button style="background-color: #2196F3;">View Transaction History</button></a>
+        </div>
+        
+        <div id="payment-form">
+            <h2>Create a Payment</h2>
+            <form id="create-payment-form">
+                <div>
+                    <label for="amount">Amount (USDT):</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0.01" required value="10.5">
+                </div>
+                <input type="hidden" id="orderId" name="orderId">
+                <div>
+                    <label for="description">Description:</label>
+                    <input type="text" id="description" name="description" required value="Test payment">
+                </div>
+                <div>
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" value="customer@example.com">
+                </div>
+                <div class="buttons">
+                    <button type="submit">Create Payment</button>
+                </div>
+            </form>
+        </div>
+        
+        <div id="payment-details" style="display: none;">
+            <h2>Payment Details</h2>
+            <div class="payment-info">
+                <div class="qr-code">
+                    <img id="qr-code-img" src="" alt="QR Code">
+                    <p>Scan this QR code with your TRON wallet app</p>
+                </div>
+                
+                <div class="payment-details">
+                    <table>
+                        <tr>
+                            <td><strong>Payment ID:</strong></td>
+                            <td id="payment-id"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Amount:</strong></td>
+                            <td id="payment-amount"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Address:</strong></td>
+                            <td id="payment-address"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td id="payment-status">Pending</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="status pending" id="status-message">
+                    Waiting for payment...
+                </div>
+                
+                <div class="payment-steps" id="payment-steps">
+                    <div class="details-label">Payment Progress:</div>
+                    <div class="step">
+                        <span>1. Payment received</span>
+                        <span class="step-status pending" id="step1-status">⌛</span>
+                    </div>
+                    <div class="step">
+                        <span>2. Funds transferred to main wallet</span>
+                        <span class="step-status pending" id="step2-status">⌛</span>
+                    </div>
+                </div>
+                
+                <div class="buttons">
+                    <button id="check-status-btn">Check Status</button>
+                    <button id="new-payment-btn">New Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API URL
+        const API_URL = 'http://localhost:3000/api';
+        
+        // Generate a random order ID
+        function generateOrderId() {
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 10000);
+            return `ORDER-${timestamp}-${random}`;
+        }
+        
+        // DOM elements
+        const paymentForm = document.getElementById('payment-form');
+        const paymentDetails = document.getElementById('payment-details');
+        const createPaymentForm = document.getElementById('create-payment-form');
+        const qrCodeImg = document.getElementById('qr-code-img');
+        const paymentIdElement = document.getElementById('payment-id');
+        const paymentAmountElement = document.getElementById('payment-amount');
+        const paymentAddressElement = document.getElementById('payment-address');
+        const paymentStatusElement = document.getElementById('payment-status');
+        const statusMessage = document.getElementById('status-message');
+        const checkStatusBtn = document.getElementById('check-status-btn');
+        const newPaymentBtn = document.getElementById('new-payment-btn');
+        const step1Status = document.getElementById('step1-status');
+        const step2Status = document.getElementById('step2-status');
+        
+        // Current payment ID
+        let currentPaymentId = null;
+        
+        // Create a new payment
+        createPaymentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const amount = document.getElementById('amount').value;
+            const description = document.getElementById('description').value;
+            const email = document.getElementById('email').value;
+            
+            // Generate a unique order ID
+            const orderId = generateOrderId();
+            document.getElementById('orderId').value = orderId;
+            
+            try {
+                const response = await fetch(`${API_URL}/payment/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: parseFloat(amount),
+                        orderId: orderId,
+                        description,
+                        customerEmail: email,
+                        callbackUrl: 'https://example.com/webhook'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show payment details
+                    paymentForm.style.display = 'none';
+                    paymentDetails.style.display = 'block';
+                    
+                    // Update payment details
+                    qrCodeImg.src = result.data.qrCode;
+                    paymentIdElement.textContent = result.data.paymentId;
+                    paymentAmountElement.textContent = `${result.data.amount} USDT`;
+                    paymentAddressElement.textContent = result.data.address;
+                    
+                    // Save payment ID
+                    currentPaymentId = result.data.paymentId;
+                    
+                    // Reset status indicators
+                    step1Status.textContent = '⌛';
+                    step1Status.className = 'step-status pending';
+                    step2Status.textContent = '⌛';
+                    step2Status.className = 'step-status pending';
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error creating payment:', error);
+                alert('Error creating payment. Please try again.');
+            }
+        });
+        
+        // Check payment status
+        checkStatusBtn.addEventListener('click', async () => {
+            if (!currentPaymentId) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/payment/status/${currentPaymentId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update status
+                    paymentStatusElement.textContent = result.data.status;
+                    
+                    // Update step indicators
+                    if (result.data.status === 'completed' || result.data.status === 'fully_completed') {
+                        step1Status.textContent = '✅';
+                        step1Status.className = 'step-status completed';
+                    } else {
+                        step1Status.textContent = '⌛';
+                        step1Status.className = 'step-status pending';
+                    }
+                    
+                    if (result.data.transferStatus === 'transferred') {
+                        step2Status.textContent = '✅';
+                        step2Status.className = 'step-status completed';
+                    } else {
+                        step2Status.textContent = '⌛';
+                        step2Status.className = 'step-status pending';
+                    }
+                    
+                    // Update status message
+                    statusMessage.className = `status ${result.data.status}`;
+                    
+                    if (result.data.status === 'pending') {
+                        statusMessage.textContent = 'Waiting for payment...';
+                    } else if (result.data.status === 'completed') {
+                        if (result.data.transferStatus === 'transferred') {
+                            statusMessage.textContent = 'Payment completed successfully!';
+                            statusMessage.className = 'status completed';
+                        } else {
+                            statusMessage.textContent = 'Payment received but waiting for transfer to main wallet...';
+                            statusMessage.className = 'status processing';
+                        }
+                    } else if (result.data.status === 'fully_completed') {
+                        statusMessage.textContent = 'Payment completed successfully!';
+                        statusMessage.className = 'status completed';
+                    } else if (result.data.status === 'failed') {
+                        statusMessage.textContent = 'Payment failed. Please contact support.';
+                    } else if (result.data.status === 'processing') {
+                        statusMessage.textContent = 'Payment is being processed...';
+                    }
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error checking payment status:', error);
+                alert('Error checking payment status. Please try again.');
+            }
+        });
+        
+        // New payment
+        newPaymentBtn.addEventListener('click', () => {
+            paymentForm.style.display = 'block';
+            paymentDetails.style.display = 'none';
+            currentPaymentId = null;
+        });
+    </script>
+</body>
+</html> 
