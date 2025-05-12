@@ -10,7 +10,7 @@ require('dotenv').config();
 async function activateAndTransfer() {
   try {
     // The specific payment ID that needs fixing
-    const paymentId = 'order_1746990863357_6784';
+    const paymentId = 'order_1747035033865_4886';
     
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGO_URI);
