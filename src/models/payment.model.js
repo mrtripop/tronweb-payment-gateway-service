@@ -33,7 +33,7 @@ const paymentSchema = new mongoose.Schema({
   },
   privateKey: {
     type: String,
-    required: true
+    required: false
   },
   transactionId: {
     type: String,
@@ -41,6 +41,10 @@ const paymentSchema = new mongoose.Schema({
   },
   transferTransactionId: {
     type: String
+  },
+  memo: {
+    type: String,
+    required: false
   },
   status: {
     type: String,
@@ -61,6 +65,10 @@ const paymentSchema = new mongoose.Schema({
   resourcesDelegated: {
     type: Boolean,
     default: false
+  },
+  useMainWallet: {
+    type: Boolean,
+    default: true
   },
   createdAt: {
     type: Date,

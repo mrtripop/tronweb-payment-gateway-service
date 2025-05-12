@@ -226,12 +226,6 @@ exports.transferToMainWallet = async (fromAddress, fromPrivateKey, amount) => {
       amount 
     });
     
-    // Create a temporary TronWeb instance with the payment private key
-    const tempTronWeb = new TronWeb({
-      fullHost: process.env.TRON_FULL_HOST || 'https://api.trongrid.io',
-      privateKey: fromPrivateKey
-    });
-    
     // Get main wallet address
     const mainWalletAddress = process.env.MAIN_WALLET_ADDRESS;
     
@@ -240,6 +234,23 @@ exports.transferToMainWallet = async (fromAddress, fromPrivateKey, amount) => {
       logError('BLOCKCHAIN', 'TRANSFER_CONFIG_ERROR', error);
       throw error;
     }
+    
+    // Check if fromAddress is already the main wallet address
+    if (fromAddress === mainWalletAddress) {
+      logPaymentJourney('BLOCKCHAIN', 'TRANSFER_SKIPPED_MAIN_WALLET', {
+        fromAddress,
+        mainWalletAddress,
+        amount
+      });
+      // Return a special transaction ID to indicate it was skipped (not an error)
+      return 'MAIN_WALLET_SELF_TRANSFER_SKIPPED';
+    }
+    
+    // Create a temporary TronWeb instance with the payment private key
+    const tempTronWeb = new TronWeb({
+      fullHost: process.env.TRON_FULL_HOST || 'https://api.trongrid.io',
+      privateKey: fromPrivateKey
+    });
     
     // First, ensure the account is activated on the blockchain
     const isActivated = await exports.activateAccountIfNeeded(fromAddress);
@@ -563,6 +574,27 @@ exports.monitorAddress = async (address, expectedAmount, timeoutSeconds = 600) =
 exports.activateAccountIfNeeded = async (address) => {
   try {
     logPaymentJourney('BLOCKCHAIN', 'ACTIVATE_ACCOUNT_CHECK_STARTED', { address });
+    
+    // Get main wallet address
+    const mainWalletAddress = process.env.MAIN_WALLET_ADDRESS;
+    
+    // Skip activation for main wallet - assume it's already activated
+    if (address === mainWalletAddress) {
+      logPaymentJourney('BLOCKCHAIN', 'ACTIVATE_ACCOUNT_SKIPPED_MAIN_WALLET', { 
+        address,
+        mainWalletAddress
+      });
+      return true;
+    }
+    
+    // Ensure we have a private key set
+    if (!process.env.TRON_PRIVATE_KEY) {
+      throw new Error('TRON_PRIVATE_KEY is not set in environment variables');
+    }
+    
+    // Make sure tronWeb has the privateKey set
+    const privateKey = process.env.TRON_PRIVATE_KEY;
+    tronWeb.setPrivateKey(privateKey);
     
     // Check if account exists
     try {

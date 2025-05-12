@@ -13,6 +13,9 @@ const tronWeb = new TronWeb({
 // TRC20 USDT contract address on the TRON network
 const USDT_CONTRACT_ADDRESS = process.env.USDT_CONTRACT_ADDRESS || 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
+// Get main wallet address from env
+const MAIN_WALLET_ADDRESS = process.env.MAIN_WALLET_ADDRESS;
+
 /**
  * Create a new payment request
  */
@@ -36,16 +39,20 @@ exports.createPayment = async (req, res) => {
       });
     }
 
-    // Generate new TRON account for the payment
-    const account = await tronWeb.createAccount();
-    
-    // Log address generation
-    logPaymentJourney('NEW_REQUEST', PAYMENT_STAGES.ADDRESS_GENERATED, { 
-      address: account.address.base58 
-    });
-    
+    if (!MAIN_WALLET_ADDRESS) {
+      logError('NEW_REQUEST', PAYMENT_STAGES.PAYMENT_REQUESTED, 'Main wallet address not configured', {});
+      return res.status(500).json({
+        success: false,
+        message: 'Payment system not properly configured'
+      });
+    }
+
     // Create payment record
     const paymentId = generateOrderId();
+    
+    // Create a memo that combines paymentId and amount to identify the payment
+    const memo = `PAY-${paymentId}-${amount}`;
+    
     const payment = new Payment({
       paymentId,
       orderId: orderId || `ORD-${Date.now()}`,
@@ -53,9 +60,10 @@ exports.createPayment = async (req, res) => {
       customerEmail,
       description,
       callbackUrl,
-      address: account.address.base58,
-      privateKey: account.privateKey,
-      status: 'pending'
+      address: MAIN_WALLET_ADDRESS,
+      memo,
+      status: 'pending',
+      useMainWallet: true
     });
 
     await payment.save();
@@ -63,19 +71,27 @@ exports.createPayment = async (req, res) => {
     // Log payment creation
     logPaymentJourney(paymentId, PAYMENT_STAGES.PAYMENT_CREATED, { 
       amount, 
-      address: account.address.base58,
+      address: MAIN_WALLET_ADDRESS,
+      memo,
       status: 'pending'
     });
 
-    // Generate QR code
-    const qrCodeUrl = await qrcode.toDataURL(account.address.base58);
+    // Generate QR code with just the wallet address for better wallet compatibility
+    // Advanced URI format not supported by all wallets
+    console.log(`[DEBUG] Creating QR code for address: ${MAIN_WALLET_ADDRESS}`);
+    const qrCodeUrl = await qrcode.toDataURL(MAIN_WALLET_ADDRESS);
+    
+    // Also log detailed payment info for debugging
+    console.log(`[DEBUG] Payment created: ID=${paymentId}, Amount=${amount}, Memo=${memo}`);
+    console.log(`[DEBUG] Full payment URI would be: tron:${MAIN_WALLET_ADDRESS}?token=${USDT_CONTRACT_ADDRESS}&amount=${amount}&memo=${encodeURIComponent(memo)}`);
 
     return res.status(201).json({
       success: true,
       data: {
         paymentId,
-        address: account.address.base58,
+        address: MAIN_WALLET_ADDRESS,
         amount,
+        memo,
         status: 'pending',
         qrCode: qrCodeUrl
       }
@@ -115,8 +131,8 @@ exports.checkPaymentStatus = async (req, res) => {
       address: payment.address 
     });
 
-    // Check if funds have been transferred to main wallet
-    const transferStatus = payment.transferTransactionId ? 'transferred' : 'pending_transfer';
+    // Since we're using the main wallet, there's no transfer step
+    const transferStatus = payment.useMainWallet ? 'not_needed' : (payment.transferTransactionId ? 'transferred' : 'pending_transfer');
     
     return res.status(200).json({
       success: true,
@@ -125,11 +141,13 @@ exports.checkPaymentStatus = async (req, res) => {
         status: payment.status,
         amount: payment.amount,
         address: payment.address,
+        memo: payment.memo,
         createdAt: payment.createdAt,
         updatedAt: payment.updatedAt,
         transferStatus: transferStatus,
+        transactionId: payment.transactionId || null,
         transferTransactionId: payment.transferTransactionId || null,
-        fullPaymentComplete: (payment.status === 'completed' && transferStatus === 'transferred')
+        fullPaymentComplete: (payment.status === 'completed')
       }
     });
   } catch (error) {
@@ -180,6 +198,7 @@ exports.getPaymentDetails = async (req, res) => {
         address: payment.address,
         status: displayStatus,
         transferStatus: transferStatus,
+        transactionId: payment.transactionId || null,
         transferTransactionId: payment.transferTransactionId || null,
         createdAt: payment.createdAt,
         updatedAt: payment.updatedAt

@@ -161,6 +161,10 @@
                             <td id="payment-address"></td>
                         </tr>
                         <tr>
+                            <td><strong>Memo:</strong></td>
+                            <td id="payment-memo"><span style="color: red; font-weight: bold;">IMPORTANT: Include this memo when sending</span></td>
+                        </tr>
+                        <tr>
                             <td><strong>Status:</strong></td>
                             <td id="payment-status">Pending</td>
                         </tr>
@@ -172,20 +176,34 @@
                 </div>
                 
                 <div class="payment-steps" id="payment-steps">
+                    <div class="details-label">Payment Instructions:</div>
+                    <div class="step">
+                        <span>1. Scan the QR code with your TRON wallet app</span>
+                    </div>
+                    <div class="step">
+                        <span>2. Send <span id="instruction-amount"></span> USDT to the address</span>
+                    </div>
+                    <div class="step">
+                        <span style="color: red; font-weight: bold;">3. IMPORTANT: Include the memo exactly as shown above</span>
+                    </div>
+                    <div class="step">
+                        <span>4. Click "Check Status" to verify your payment</span>
+                    </div>
+                </div>
+                
+                <div class="payment-steps" id="payment-progress" style="display: none;">
                     <div class="details-label">Payment Progress:</div>
                     <div class="step">
                         <span>1. Payment received</span>
                         <span class="step-status pending" id="step1-status">⌛</span>
-                    </div>
-                    <div class="step">
-                        <span>2. Funds transferred to main wallet</span>
-                        <span class="step-status pending" id="step2-status">⌛</span>
                     </div>
                 </div>
                 
                 <div class="buttons">
                     <button id="check-status-btn">Check Status</button>
                     <button id="new-payment-btn">New Payment</button>
+                    <button id="copy-address-btn">Copy Address</button>
+                    <button id="copy-memo-btn">Copy Memo</button>
                 </div>
             </div>
         </div>
@@ -259,21 +277,54 @@
                     paymentIdElement.textContent = result.data.paymentId;
                     paymentAmountElement.textContent = `${result.data.amount} USDT`;
                     paymentAddressElement.textContent = result.data.address;
+                    document.getElementById('payment-memo').innerHTML = 
+                        `<code style="background: #f8f8f8; padding: 3px; border: 1px solid #ddd;">${result.data.memo}</code> ` +
+                        `<span style="color: red; font-weight: bold;">IMPORTANT: Include this memo when sending</span>`;
+                    document.getElementById('instruction-amount').textContent = result.data.amount;
                     
                     // Save payment ID
                     currentPaymentId = result.data.paymentId;
                     
                     // Reset status indicators
-                    step1Status.textContent = '⌛';
-                    step1Status.className = 'step-status pending';
-                    step2Status.textContent = '⌛';
-                    step2Status.className = 'step-status pending';
+                    document.getElementById('step1-status').textContent = '⌛';
+                    document.getElementById('step1-status').className = 'step-status pending';
+                    
+                    // Show the progress section
+                    document.getElementById('payment-progress').style.display = 'block';
                 } else {
                     alert(`Error: ${result.message}`);
                 }
             } catch (error) {
                 console.error('Error creating payment:', error);
                 alert('Error creating payment. Please try again.');
+            }
+        });
+        
+        // Add copy buttons functionality
+        document.getElementById('copy-address-btn').addEventListener('click', () => {
+            const address = paymentAddressElement.textContent;
+            navigator.clipboard.writeText(address)
+                .then(() => {
+                    alert('Address copied to clipboard');
+                })
+                .catch(err => {
+                    console.error('Failed to copy address:', err);
+                });
+        });
+
+        document.getElementById('copy-memo-btn').addEventListener('click', () => {
+            const memoElement = document.getElementById('payment-memo');
+            const memoCode = memoElement.querySelector('code');
+            const memo = memoCode ? memoCode.textContent : '';
+            
+            if (memo) {
+                navigator.clipboard.writeText(memo)
+                    .then(() => {
+                        alert('Memo copied to clipboard');
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy memo:', err);
+                    });
             }
         });
         
@@ -291,19 +342,11 @@
                     
                     // Update step indicators
                     if (result.data.status === 'completed' || result.data.status === 'fully_completed') {
-                        step1Status.textContent = '✅';
-                        step1Status.className = 'step-status completed';
+                        document.getElementById('step1-status').textContent = '✅';
+                        document.getElementById('step1-status').className = 'step-status completed';
                     } else {
-                        step1Status.textContent = '⌛';
-                        step1Status.className = 'step-status pending';
-                    }
-                    
-                    if (result.data.transferStatus === 'transferred') {
-                        step2Status.textContent = '✅';
-                        step2Status.className = 'step-status completed';
-                    } else {
-                        step2Status.textContent = '⌛';
-                        step2Status.className = 'step-status pending';
+                        document.getElementById('step1-status').textContent = '⌛';
+                        document.getElementById('step1-status').className = 'step-status pending';
                     }
                     
                     // Update status message
@@ -312,14 +355,6 @@
                     if (result.data.status === 'pending') {
                         statusMessage.textContent = 'Waiting for payment...';
                     } else if (result.data.status === 'completed') {
-                        if (result.data.transferStatus === 'transferred') {
-                            statusMessage.textContent = 'Payment completed successfully!';
-                            statusMessage.className = 'status completed';
-                        } else {
-                            statusMessage.textContent = 'Payment received but waiting for transfer to main wallet...';
-                            statusMessage.className = 'status processing';
-                        }
-                    } else if (result.data.status === 'fully_completed') {
                         statusMessage.textContent = 'Payment completed successfully!';
                         statusMessage.className = 'status completed';
                     } else if (result.data.status === 'failed') {

@@ -119,18 +119,41 @@ async function processPayments() {
           }
         }
         
-        // Now check if we need to transfer funds to main wallet
-        // This happens for payments with status 'completed' but no transfer transaction ID
-        if (status === 'completed' || payment.status === 'completed') {
-          // Check if transfer has already been done
+        // Process completed payments that need transferring
+        if (status === 'completed') {
+          const paymentId = payment.paymentId;
+          const { address, privateKey, amount } = payment;
+          
+          // Skip payments that have already been transferred
           if (payment.transferTransactionId) {
-            logPaymentJourney(paymentId, 'TRANSFER_ALREADY_DONE', { 
-              transferTransactionId: payment.transferTransactionId 
-            });
-            console.log(`Payment ${paymentId} already transferred to main wallet`);
-            successCount++;
-            continue; // Skip to next payment
+            console.log(`Payment ${paymentId} already has transfer record: ${payment.transferTransactionId}`);
+            
+            // If it's a special main wallet transaction ID, mark as success
+            if (payment.transferTransactionId === 'MAIN_WALLET_SELF_TRANSFER_SKIPPED') {
+              successCount++;
+            }
+            
+            continue;
           }
+          
+          // Skip if this is a direct main wallet payment (should be handled by main-wallet-monitor)
+          if (payment.useMainWallet === true) {
+            logPaymentJourney(paymentId, 'TRANSFER_SKIPPED', {
+              reason: 'Direct payment to main wallet, no transfer needed'
+            });
+            
+            // Mark it as transferred to prevent future processing attempts
+            payment.transferTransactionId = 'MAIN_WALLET_SELF_TRANSFER_SKIPPED';
+            await payment.save();
+            
+            successCount++;
+            continue;
+          }
+          
+          logPaymentJourney(paymentId, PAYMENT_STAGES.TRANSFER_STARTED, {
+            address,
+            amount
+          });
           
           // Double check the actual USDT balance before trying to transfer
           let actualBalance = 0;

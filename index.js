@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const { startPaymentProcessor, processPayments } = require('./src/utils/payment-processor');
+const { startMainWalletMonitor } = require('./src/services/main-wallet-monitor');
 const { logPaymentJourney, logError, PAYMENT_STAGES } = require('./src/utils/logger');
 const fs = require('fs');
 const path = require('path');
@@ -16,6 +17,12 @@ if (!fs.existsSync(logsDir)) {
 
 // Load environment variables
 dotenv.config();
+
+// Debug environment variables
+console.log('Environment variables:');
+console.log(`MAIN_WALLET_ADDRESS: ${process.env.MAIN_WALLET_ADDRESS}`);
+console.log(`TRON_FULL_HOST: ${process.env.TRON_FULL_HOST}`);
+console.log(`USDT_CONTRACT_ADDRESS: ${process.env.USDT_CONTRACT_ADDRESS}`);
 
 // Connect to database
 connectDB();
@@ -137,6 +144,10 @@ app.listen(PORT, () => {
     port: PORT,
     timestamp: new Date().toISOString()
   });
+  
+  // Start the main wallet monitor
+  console.log('Starting main wallet monitor...');
+  startMainWalletMonitor(60000); // Check every 60 seconds
   
   // Start payment processor with auto-restart capability
   const startProcessorWithRestart = () => {

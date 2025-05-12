@@ -17,6 +17,42 @@ A payment gateway for accepting USDT payments on the TRON blockchain network wit
 - Merchant callback system
 - QR code generation for easy payments
 - REST API for integration with your application
+- **NEW: Direct Main Wallet Payment System**: Use a single wallet address with memos to eliminate activation overhead
+
+## Payment Methods
+
+The gateway supports two different payment methods:
+
+### 1. Temporary Wallet Method (Original)
+
+This method creates a new TRON wallet for each payment:
+
+- **Pros**:
+  - Each payment has a dedicated wallet address for easier tracking
+  - Complete isolation between payments
+  - Works with any TRON wallet app
+
+- **Cons**:
+  - Requires wallet activation with TRX for each payment
+  - Two-step process (receive payment, then transfer to main wallet)
+  - Higher overhead and transaction costs
+
+### 2. Main Wallet Method (New)
+
+This method uses a single main wallet address with memo fields to identify payments:
+
+- **Pros**:
+  - No wallet activation required
+  - Lower network fees and overhead
+  - Faster payment processing
+  - No need for transferring funds to main wallet
+
+- **Cons**:
+  - Requires customer to include a memo field when sending
+  - Multiple payments with the same amount might be harder to distinguish
+  - Some wallet apps might not support memo fields
+
+To use the main wallet method, set `useMainWallet: true` in your environment. The system will default to this method when creating new payments.
 
 ## Requirements
 
